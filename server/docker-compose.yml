@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  gcc-test:
+    build:
+      context: ./dockerfiles/c
+      dockerfile: Dockerfile
+    container_name: gcc-test
+    command: tail -f /dev/null
+    restart: unless-stopped
+
+  gpp-test:
+    build:
+      context: ./dockerfiles/cpp
+      dockerfile: Dockerfile
+    container_name: gpp-test
+    command: tail -f /dev/null
+    restart: unless-stopped
+
+  python-test:
+    build:
+      context: ./dockerfiles/python
+      dockerfile: Dockerfile
+    container_name: python-test
+    command: tail -f /dev/null
+    restart: unless-stopped
+
+  rust-test:
+    build:
+      context: ./dockerfiles/rust
+      dockerfile: Dockerfile
+    container_name: rust-test
+    command: tail -f /dev/null
+    restart: unless-stopped
+
+  go-test:
+    build:
+      context: ./dockerfiles/go
+      dockerfile: Dockerfile
+    container_name: go-test
+    command: tail -f /dev/null
+    restart: unless-stopped
+
+  java-test:
+    build:
+      context: ./dockerfiles/java
+      dockerfile: Dockerfile
+    container_name: java-test
+    command: tail -f /dev/null
+    restart: unless-stopped
+
+  javascript-test:
+    build:
+      context: ./dockerfiles/javascript
+      dockerfile: Dockerfile
+    container_name: javascript-test
+    command: tail -f /dev/null
+    restart: unless-stopped

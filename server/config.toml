@@ -1,0 +1,59 @@
+[server]
+bind_addr = "0.0.0.0:3000"
+run_timeout = 5
+
+[docker]
+host = "http://10.211.55.8:2375"
+connect_timeout = 3
+keepalive_secs = 60
+request_timeout = 120
+
+[containers]
+c = "gcc-test"
+cpp = "gpp-test"
+python = "python-test"
+
+# TODO 以下语言尚未编写代码生成器
+rust = "rust-test"
+go = "go-test"
+java = "java-test"
+
+[languages.c]
+enabled = true
+file_extension = "c"
+compiler = "gcc"
+compile_cmd = "gcc {source} -o {binary} -Wall -O2 2>&1"
+run_cmd = "{binary}"
+
+[languages.cpp]
+enabled = true
+file_extension = "cpp"
+compiler = "g++"
+compile_cmd = "g++ {source} -o {binary} -std=c++17 -Wall -O2 2>&1"
+run_cmd = "{binary}"
+
+[languages.python]
+enabled = true
+file_extension = "py"
+run_cmd = "python3 {source}"
+
+[languages.rust]
+enabled = false
+file_extension = "rs"
+compiler = "rustc"
+compile_cmd = "rustc {source} -o {binary} -O 2>&1"
+run_cmd = "{binary}"
+
+[languages.go]
+enabled = false
+file_extension = "go"
+compiler = "go"
+compile_cmd = "go build -o {binary} {source} 2>&1"
+run_cmd = "{binary}"
+
+[languages.java]
+enabled = false
+file_extension = "java"
+compiler = "javac"
+compile_cmd = "javac {source} 2>&1"
+run_cmd = "java -cp /tmp Main"
