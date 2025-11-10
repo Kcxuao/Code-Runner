@@ -35,40 +35,49 @@ jobs:
         with:
           workspaces: server
       
-      - working-directory: ./server
+      - name: Build
+        working-directory: ./server
         run: cargo build --release --target ${{ matrix.target }}
+      
+      # 直接打包
+      - name: Package (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          cd server/target/${{ matrix.target }}/release
+          7z a ../../../../code-runner-${{ matrix.name }}.zip code-runner.exe
+      
+      - name: Package (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd server/target/${{ matrix.target }}/release
+          chmod +x code-runner
+          tar czf ../../../../code-runner-${{ matrix.name }}.tar.gz code-runner
       
       - uses: actions/upload-artifact@v4
         with:
-          name: code-runner-${{ matrix.name }}
+          name: package-${{ matrix.name }}
           path: |
-            server/target/${{ matrix.target }}/release/code-runner
-            server/target/${{ matrix.target }}/release/code-runner.exe
+            code-runner-*.tar.gz
+            code-runner-*.zip
 
   release:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
-      - uses: actions/download-artifact@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          path: packages
+          merge-multiple: true
       
-      - name: Package
-        run: |
-          cd artifacts
-          for dir in code-runner-*/; do
-            if [[ "$dir" == *"windows"* ]]; then
-              cd "$dir" && zip "../${dir%/}.zip" * && cd ..
-            else
-              cd "$dir" && chmod +x code-runner && tar czf "../${dir%/}.tar.gz" * && cd ..
-            fi
-          done
+      - name: Generate checksums
+        working-directory: packages
+        run: sha256sum * > checksums.txt
       
       - uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*.{tar.gz,zip}
+          files: packages/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
