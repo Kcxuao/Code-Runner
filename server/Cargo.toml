@@ -23,3 +23,13 @@ hyper = "1.0"
 hyper-util = { version = "0.1", features = ["client", "client-legacy", "http1", "http2", "tokio"] }
 async-trait = "0.1.89"
 tower-http = { version = "0.6.6", features = ["cors"] }
+
+[profile.dev]
+opt-level = 0  # 优化级别 0-3
+
+[profile.release]
+opt-level = 3
+lto = true  # 链接时优化
+codegen-units = 1     # 减少并行以提高优化
+strip = true          # 去除符号表
+panic = "abort"       # panic 时直接终止
