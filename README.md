@@ -263,14 +263,6 @@ impl CodeGenerator for NewLangCodeGenerator {
 - ✅ 执行后自动清理
 - ⚠️ Heredoc 注入风险（待修复）
 
-### 建议改进
-
-1. 使用 Docker API 上传文件，避免 shell 注入
-2. 添加执行超时限制
-3. 限制容器资源使用 (CPU/内存)
-4. 实现速率限制
-5. 添加用户认证
-
 ## 🛠️ 开发
 
 ### 项目结构
