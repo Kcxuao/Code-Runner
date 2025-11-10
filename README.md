@@ -349,7 +349,6 @@ RUST_LOG=debug cargo run
 ## 额外文件
 
 ### LICENSE
-```
 MIT License
 
 Copyright (c) 2024 Your Name
