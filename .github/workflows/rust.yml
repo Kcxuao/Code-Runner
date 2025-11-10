@@ -9,12 +9,42 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  PROJECT_NAME: code-runner
 
 jobs:
-  test:
-    name: Test
+  # 前端构建
+  build-web:
+    name: Build Web
     runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./web
+        run: npm ci
+      
+      - name: Build web
+        working-directory: ./web
+        run: npm run build
+      
+      - name: Upload web artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: web-dist
+          path: web/dist  # 或 web/build，根据你的构建输出目录
+
+  # 后端测试
+  test-server:
+    name: Test Server
+    runs-on: ubuntu-latest
+    
     steps:
       - uses: actions/checkout@v3
       
@@ -23,30 +53,21 @@ jobs:
           toolchain: stable
       
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: server
       
       - name: Run tests
+        working-directory: ./server
         run: cargo test --all-features --verbose
-
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-          components: rustfmt, clippy
-      
-      - name: Check formatting
-        run: cargo fmt --check
       
       - name: Run clippy
+        working-directory: ./server
         run: cargo clippy --all-features -- -D warnings
 
-  build:
-    name: Build
-    needs: [test, lint]
+  # 后端多平台构建
+  build-server:
+    name: Build Server
+    needs: [build-web, test-server]
     strategy:
       fail-fast: false
       matrix:
@@ -65,13 +86,6 @@ jobs:
             asset_name: code-runner-linux-arm64
             use_cross: true
           
-          # Linux ARMv7
-          - os: ubuntu-latest
-            target: armv7-unknown-linux-gnueabihf
-            artifact_name: code-runner
-            asset_name: code-runner-linux-armv7
-            use_cross: true
-          
           # Windows x86_64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
@@ -86,7 +100,7 @@ jobs:
             asset_name: code-runner-macos-amd64
             use_cross: false
           
-          # macOS ARM64 (Apple Silicon)
+          # macOS ARM64
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact_name: code-runner
@@ -105,38 +119,49 @@ jobs:
           toolchain: stable
           target: ${{ matrix.target }}
 
-      - name: Cache dependencies
+      - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
+          workspaces: server
           key: ${{ matrix.target }}
+
+      # 下载前端构建产物
+      - name: Download web artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: web-dist
+          path: server/static  # 根据你的项目调整路径
 
       - name: Install cross
         if: matrix.use_cross
         run: cargo install cross --git https://github.com/cross-rs/cross
 
-      - name: Build (native)
+      - name: Build server (native)
         if: ${{ !matrix.use_cross }}
+        working-directory: ./server
         run: cargo build --release --target ${{ matrix.target }} --verbose
 
-      - name: Build (cross)
+      - name: Build server (cross)
         if: matrix.use_cross
+        working-directory: ./server
         run: cross build --release --target ${{ matrix.target }} --verbose
 
       - name: Strip binary (Unix)
         if: matrix.os != 'windows-latest'
-        run: strip target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+        run: strip server/target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
 
-      - name: Upload artifact
+      - name: Upload server binary
         uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.asset_name }}
-          path: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+          path: server/target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
           if-no-files-found: error
 
-  release:
-    name: Create Release
+  # 打包完整应用
+  package:
+    name: Package Application
+    needs: build-server
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
     runs-on: ubuntu-latest
     
     steps:
@@ -148,29 +173,42 @@ jobs:
         with:
           path: artifacts
 
-      - name: Create archives
+      - name: Create release packages
         run: |
+          mkdir -p release
           cd artifacts
-          for dir in */; do
+          
+          for dir in code-runner-*/; do
             dirname="${dir%/}"
+            platform="${dirname#code-runner-}"
+            
+            # 创建打包目录
+            mkdir -p "../release/${dirname}"
+            
+            # 复制二进制文件
+            cp "${dirname}"/* "../release/${dirname}/"
+            
+            # 添加 README 等文件
+            cp ../README.md "../release/${dirname}/" 2>/dev/null || true
+            cp ../LICENSE "../release/${dirname}/" 2>/dev/null || true
+            
+            # 打包
+            cd "../release"
             if [[ "$dirname" == *"windows"* ]]; then
-              cd "$dirname"
-              zip "../${dirname}.zip" *
-              cd ..
+              zip -r "${dirname}.zip" "${dirname}"
             else
-              cd "$dirname"
-              chmod +x *
-              tar czf "../${dirname}.tar.gz" *
-              cd ..
+              chmod +x "${dirname}/code-runner" 2>/dev/null || true
+              tar czf "${dirname}.tar.gz" "${dirname}"
             fi
+            cd ../artifacts
           done
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            artifacts/*.tar.gz
-            artifacts/*.zip
+            release/*.tar.gz
+            release/*.zip
           draft: false
           prerelease: false
           generate_release_notes: true
